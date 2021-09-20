@@ -33,8 +33,14 @@
           [Socket]
           SocketUser = nix-daemon
           SocketGroup = nix-daemon
-    - name: Fech the Nix deps
-      shell: nix-shell https://github.com/nixos/nix/archive/master.tar.gz --run true
+    - name: Setup the Nix cache
+      shell: |
+        nix-env -iA cachix -f https://cachix.org/api/v1/install
+        ~/.nix-profile/bin/cachix use nixos-nix-install-tests
+    - name: Install the latest Nix
+      shell: |
+        nix-build https://github.com/nixos/nix/archive/rootless-daemon.tar.gz --out-link /nix-rootless
+        ln -sf /nix-rootless/bin/nix /usr/bin/nix
     - name: Make the daemon run as a non-root user
       copy:
         dest: /lib/systemd/system/nix-daemon.service.d/non-root.conf
@@ -42,9 +48,6 @@
           [Service]
           User = nix-daemon
           Group = nix-daemon
-          Environment="LD_LIBRARY_PATH=/nix-prebuilt/out/lib"
-          ExecStart=
-          ExecStart=@/nix-prebuilt/out/bin/nix-daemon nix-daemon --daemon -v
           ExecStartPre=+chown nix-daemon:nix-daemon /nix
           ExecStartPre=-+chown nix-daemon:nix-daemon /nix/store
           ExecStartPre=+chown -R nix-daemon:nix-users /nix/var
@@ -75,7 +78,7 @@
           ConditionPathIsReadWrite=/nix/var/nix/gc-socket
 
           [Service]
-          ExecStart=@/nix-prebuilt/out/libexec/nix/nix-find-roots nix-find-roots -v
+          ExecStart=@/nix-rootless/libexec/nix/nix-find-roots nix-find-roots -v
           Type=Simple
           StandardError=journal
           StandardInput=socket
