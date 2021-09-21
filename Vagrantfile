@@ -17,6 +17,8 @@ Vagrant.configure("2") do |config|
     # Not sure why this is needed, but vagrant defaults to `qemu:///system`,
     # and can’t connect to it because I’m not in the `libvirtd` group
     domain.uri = 'qemu:///session'
+    domain.cpus = 16
+    domain.memory = 9092
   end
 
   config.vm.provision "ansible" do |ansible|
