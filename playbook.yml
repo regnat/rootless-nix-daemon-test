@@ -35,6 +35,7 @@
           SocketGroup = nix-daemon
     - name: Install the latest Nix
       shell: |
+        set -xe
         nix-build https://github.com/nixos/nix/archive/rootless-daemon.tar.gz --out-link /nix-rootless
         cp /usr/bin/nix /usr/bin/nix.old
         ln -sf /nix-rootless/bin/nix /usr/bin/nix
