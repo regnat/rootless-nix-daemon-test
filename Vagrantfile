@@ -23,6 +23,7 @@ Vagrant.configure("2") do |config|
 
   config.vm.provision "ansible" do |ansible|
     ansible.playbook = "playbook.yml"
+    ansible.verbose = "v"
   end
   config.vm.synced_folder "../../nixos/nix/rootless-daemon/outputs/", "/nix-prebuilt"
 
