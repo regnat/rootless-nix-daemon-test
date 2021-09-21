@@ -25,7 +25,6 @@ Vagrant.configure("2") do |config|
     ansible.playbook = "playbook.yml"
     ansible.verbose = "v"
   end
-  config.vm.synced_folder "../../nixos/nix/rootless-daemon/outputs/", "/nix-prebuilt"
 
   # Disable automatic box update checking. If you disable this, then
   # boxes will only be checked for updates when the user runs
