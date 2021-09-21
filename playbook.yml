@@ -33,13 +33,10 @@
           [Socket]
           SocketUser = nix-daemon
           SocketGroup = nix-daemon
-    - name: Setup the Nix cache
-      shell: |
-        nix-env -iA cachix -f https://cachix.org/api/v1/install
-        ~/.nix-profile/bin/cachix use nixos-nix-install-tests
     - name: Install the latest Nix
       shell: |
         nix-build https://github.com/nixos/nix/archive/rootless-daemon.tar.gz --out-link /nix-rootless
+        cp /usr/bin/nix /usr/bin/nix.old
         ln -sf /nix-rootless/bin/nix /usr/bin/nix
     - name: Make the daemon run as a non-root user
       copy:
