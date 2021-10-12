@@ -1,0 +1,13 @@
+[Unit]
+Description=Nix GC tracer daemon
+RequiresMountsFor=/nix/store
+RequiresMountsFor=/nix/var
+ConditionPathIsReadWrite=/nix/var/nix/gc-socket
+
+[Service]
+ExecStart=@/home/nix-daemon/.nix-profile/libexec/nix/nix-find-roots nix-find-roots -v
+Type=Simple
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target
