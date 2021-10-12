@@ -12,7 +12,7 @@ Vagrant.configure("2") do |config|
 
   # Every Vagrant development environment requires a box. You can search for
   # boxes at https://vagrantcloud.com/search.
-  config.vm.box = "generic/debian11"
+  config.vm.box = "centos/8"
   config.vm.provider :libvirt do |domain|
     # Not sure why this is needed, but vagrant defaults to `qemu:///system`,
     # and can’t connect to it because I’m not in the `libvirtd` group

@@ -1,95 +1,118 @@
 ---
 - hosts: all
-  become: yes
   tasks:
-    - name: Install Nix
-      apt:
-        name: nix-setup-systemd
-        state: present
-        update_cache: yes
-    - name: Add vagrant as a Nix user
-      user:
-        name: vagrant
-        groups: [ nix-users ]
-    - name: Create the Nix daemon group
-      group:
-        name: nix-daemon
-    - name: Create the Nix daemon user
-      user:
-        name: nix-daemon
-        system: true
-    - name: Create the systemd override directory
-      file:
-        dest: /lib/systemd/system/nix-daemon.service.d
-        state: directory
-    - name: Create the systemd socket override directory
-      file:
-        dest: /lib/systemd/system/nix-daemon.socket.d
-        state: directory
-    - name: Make the daemon socket listen as a non-root user
-      copy:
-        dest: /lib/systemd/system/nix-daemon.socket.d/non-root.conf
-        content: |
-          [Socket]
-          SocketUser = nix-daemon
-          SocketGroup = nix-daemon
-    - name: Install the latest Nix
-      shell: |
-        set -xe
-        nix-build https://github.com/nixos/nix/archive/rootless-daemon.tar.gz --out-link /nix-rootless
-        cp /usr/bin/nix /usr/bin/nix.old
-        ln -sf /nix-rootless/bin/nix /usr/bin/nix
-    - name: Make the daemon run as a non-root user
-      copy:
-        dest: /lib/systemd/system/nix-daemon.service.d/non-root.conf
-        content: |
-          [Service]
-          User = nix-daemon
-          Group = nix-daemon
-          ExecStartPre=+chown nix-daemon:nix-daemon /nix
-          ExecStartPre=-+chown nix-daemon:nix-daemon /nix/store
-          ExecStartPre=+chown -R nix-daemon:nix-users /nix/var
-    - name: Create the gc socket
-      copy:
-        dest: /etc/systemd/system/nix-gc-trace.socket
-        content: |
-          [Unit]
-          Description=Nix Daemon Socket
-          Before=multi-user.target
-          RequiresMountsFor=/nix/store
-          ConditionPathIsReadWrite=/nix/var/nix/gc-socket
+    - name: System setup
+      become: true
+      become_user: root
+      block:
+        - name: Disable selinux
+          command: setenforce Permissive
+        - name: Create the Nix daemon group
+          group:
+            name: nix-daemon
+        - name: Create the Nix daemon user
+          user:
+            name: nix-daemon
+            system: false
+            group: nix-daemon
+            groups:
+              - systemd-journal # For debugging mostly
+        - name: Make the user systemd session start at boot
+          command: loginctl enable-linger nix-daemon
+        - name: Ensure nix directory exists
+          file:
+            path: "/nix"
+            owner: "nix-daemon"
+            group: "nix-daemon"
+            state: directory
+            mode: "0755"
+    - name: User setup
+      become: true
+      become_user: nix-daemon
+      block:
+        - name: Get a static Nix for bootstraping
+          get_url:
+            url: "https://hydra.nixos.org/build/150597986/download/2/nix"
+            dest: "/tmp/nix"
+            mode: "0755"
+            force: no
+        # - name: Get a static busybox (shell) for bootstraping
+        #   get_url:
+        #     url: "https://www.busybox.net/downloads/binaries/1.31.0-defconfig-multiarch-musl/busybox-x86_64"
+        #     dest: "/tmp/sh"
+        #     mode: "0755"
+        #     force: no
+        - name: Install the latest Nix
+          shell: |
+            set -xe
+            export NIX_SSL_CERT_FILE=/etc/ssl/certs/ca-bundle.crt
+            /tmp/nix --experimental-features 'nix-command flakes ca-references' profile install nix/rootless-daemon --option sandbox-paths /bin/sh=/tmp/sh \
+              --option extra-substituters https://regnat-test.cachix.org \
+              --option extra-trusted-public-keys regnat-test.cachix.org-1:57yne15icau5taBiwQ7n8AuYsbttkDtMEJJ6bHqLW+0=
+        - name: Create the systemd units directory
+          file:
+            path: /home/nix-daemon/.config/systemd/user
+            state: directory
+            owner: "nix-daemon"
+            group: "nix-daemon"
+            mode: "0755"
+        - name: Add the Nix systemd services
+          copy:
+            dest: /home/nix-daemon/.config/systemd/user/{{ item }}
+            src: ./systemd/{{ item }}
+          loop:
+            - nix-daemon.service
+            - nix-daemon.socket
+        - name: Enable the Nix systemd service
+          systemd:
+            scope: user
+            enabled: yes
+            daemon-reload: yes
+            name: nix-daemon.service
+        - name: Start the Nix socket unit
+          systemd:
+            scope: user
+            enabled: yes
+            state: started
+            name: nix-daemon.socket
+    - name: Gc daemon setup
+      become: true
+      become_user: root
+      block:
+        - name: Create the gc socket
+          copy:
+            dest: /etc/systemd/system/nix-gc-trace.socket
+            content: |
+              [Unit]
+              Description=Nix Daemon Socket
+              Before=multi-user.target
+              RequiresMountsFor=/nix/store
+              ConditionPathIsReadWrite=/nix/var/nix/gc-socket
 
-          [Socket]
-          ListenStream=/nix/var/nix/gc-socket/socket
-          Accept=true
+              [Socket]
+              ListenStream=/nix/var/nix/gc-socket/socket
+              Accept=true
 
-          [Install]
-          WantedBy=sockets.target
-    - name: Create the gc systemd unit
-      copy:
-        dest: /etc/systemd/system/nix-gc-trace@.service
-        content: |
-          [Unit]
-          Description=Nix GC tracer daemon
-          RequiresMountsFor=/nix/store
-          RequiresMountsFor=/nix/var
-          ConditionPathIsReadWrite=/nix/var/nix/gc-socket
+              [Install]
+              WantedBy=sockets.target
+        - name: Create the gc systemd unit
+          copy:
+            dest: /etc/systemd/system/nix-gc-trace@.service
+            content: |
+              [Unit]
+              Description=Nix GC tracer daemon
+              RequiresMountsFor=/nix/store
+              RequiresMountsFor=/nix/var
+              ConditionPathIsReadWrite=/nix/var/nix/gc-socket
 
-          [Service]
-          ExecStart=@/nix-rootless/libexec/nix/nix-find-roots nix-find-roots -v
-          Type=Simple
-          StandardError=journal
-          StandardInput=socket
-          StandardOutput=socket
+              [Service]
+              ExecStart=@/home/nix-daemon/.nix-profile/libexec/nix/nix-find-roots nix-find-roots -v
+              Type=Simple
+              StandardError=journal
 
-          [Install]
-          WantedBy=multi-user.target
-    - name: Restart the Nix daemon
-      systemd:
-        daemon_reload: yes
-        name: nix-daemon
-        state: restarted
-    - name: Start the Nix gc socket
-      systemd:
-        name: nix-gc-trace.socket
-        state: started
+              [Install]
+              WantedBy=multi-user.target
+        - name: Start the Nix gc socket
+          systemd:
+            name: nix-gc-trace.socket
+            state: started
