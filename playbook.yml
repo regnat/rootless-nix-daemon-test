@@ -63,6 +63,18 @@
           loop:
             - nix-daemon.service
             - nix-daemon.socket
+        - name: Create the Nix config dir
+          file:
+            path: /nix/etc
+            state: directory
+            owner: "nix-daemon"
+            group: "nix-daemon"
+            mode: "0755"
+        - name: Create the Nix config file
+          copy:
+            dest: /nix/etc/nix.conf
+            content:
+              experimental-features = external-gc-daemon
         - name: Enable the Nix systemd service
           systemd:
             scope: user
