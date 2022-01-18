@@ -3,18 +3,19 @@ Description=Nix GC tracer daemon
 RequiresMountsFor=/nix/store
 RequiresMountsFor=/nix/var
 ConditionPathIsReadWrite=/nix/var/nix/gc-socket
+ProcSubset=pid
+
+[Service]
+ExecStart=@/home/nix-daemon/.nix-profile/libexec/nix/nix-find-roots nix-find-roots
+Type=simple
+StandardError=journal
 ProtectSystem=full
+ReadWritePaths=/nix/var/nix/gc-socket
 SystemCallFilter=@system-service
 SystemCallErrorNumber=EPERM
 PrivateNetwork=true
 PrivateDevices=true
 ProtectKernelTunables=true
-ProcSubset=pid
-
-[Service]
-ExecStart=@/home/nix-daemon/.nix-profile/libexec/nix/nix-find-roots nix-find-roots
-Type=Simple
-StandardError=journal
 
 [Install]
 WantedBy=multi-user.target
