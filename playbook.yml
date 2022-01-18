@@ -36,12 +36,14 @@
             dest: "/tmp/nix"
             mode: "0755"
             force: no
-        # - name: Get a static busybox (shell) for bootstraping
-        #   get_url:
-        #     url: "https://www.busybox.net/downloads/binaries/1.31.0-defconfig-multiarch-musl/busybox-x86_64"
-        #     dest: "/tmp/sh"
-        #     mode: "0755"
-        #     force: no
+            checksum: sha256:9954e60e488f29ea487ca82959a84d2cc07b1459dc852aa6edf9d8e43d59250b
+        - name: Get a static busybox (shell) for bootstraping
+          get_url:
+            url: "https://www.busybox.net/downloads/binaries/1.31.0-defconfig-multiarch-musl/busybox-x86_64"
+            dest: "/tmp/sh"
+            mode: "0755"
+            force: no
+            checksum: sha256:51fcb60efbdf3e579550e9ab893730df56b33d0cc928a2a6467bd846cdfef7d8
         - name: Install the latest Nix
           shell: |
             set -xe
