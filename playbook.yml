@@ -49,6 +49,7 @@
             set -xe
             export NIX_SSL_CERT_FILE=/etc/ssl/certs/ca-bundle.crt
             /tmp/nix --experimental-features 'nix-command flakes ca-references' profile install nix/rootless-daemon --option sandbox-paths /bin/sh=/tmp/sh \
+              --profile /nix/var/nix/profiles/default \
               --option extra-substituters https://regnat-test.cachix.org \
               --option extra-trusted-public-keys regnat-test.cachix.org-1:57yne15icau5taBiwQ7n8AuYsbttkDtMEJJ6bHqLW+0=
         - name: Create the systemd units directory
